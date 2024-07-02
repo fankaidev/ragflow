@@ -19,13 +19,9 @@ from api.utils.file_utils import get_project_base_directory
 from api.utils.log_utils import LoggerFactory, getLogger
 
 # Logger
-LoggerFactory.set_directory(
-    os.path.join(
-        get_project_base_directory(),
-        "logs",
-        "api"))
+LoggerFactory.set_directory(os.path.join(get_project_base_directory(), "logs", "api"))
 # {CRITICAL: 50, FATAL:50, ERROR:40, WARNING:30, WARN:30, INFO:20, DEBUG:10, NOTSET:0}
-LoggerFactory.LEVEL = 30
+LoggerFactory.LEVEL = 10
 
 stat_logger = getLogger("stat")
 access_logger = getLogger("access")
@@ -111,7 +107,7 @@ default_llm = {
         "image2text_model": "",
         "asr_model": "",
         "rerank_model": "BAAI/bge-reranker-v2-m3",
-    }
+    },
 }
 LLM = get_base_config("user_default_llm", {})
 LLM_FACTORY = LLM.get("factory", "Tongyi-Qianwen")
@@ -120,7 +116,8 @@ LLM_BASE_URL = LLM.get("base_url")
 if LLM_FACTORY not in default_llm:
     print(
         "\33[91m【ERROR】\33[0m:",
-        f"LLM factory {LLM_FACTORY} has not supported yet, switch to 'Tongyi-Qianwen/QWen' automatically, and please check the API_KEY in service_conf.yaml.")
+        f"LLM factory {LLM_FACTORY} has not supported yet, switch to 'Tongyi-Qianwen/QWen' automatically, and please check the API_KEY in service_conf.yaml.",
+    )
     LLM_FACTORY = "Tongyi-Qianwen"
 CHAT_MDL = default_llm[LLM_FACTORY]["chat_model"]
 EMBEDDING_MDL = default_llm["BAAI"]["embedding_model"]
@@ -131,7 +128,8 @@ IMAGE2TEXT_MDL = default_llm[LLM_FACTORY]["image2text_model"]
 API_KEY = LLM.get("api_key", "")
 PARSERS = LLM.get(
     "parsers",
-    "naive:General,qa:Q&A,resume:Resume,manual:Manual,table:Table,paper:Paper,book:Book,laws:Laws,presentation:Presentation,picture:Picture,one:One")
+    "naive:General,qa:Q&A,resume:Resume,manual:Manual,table:Table,paper:Paper,book:Book,laws:Laws,presentation:Presentation,picture:Picture,one:One",
+)
 
 # distribution
 DEPENDENT_DISTRIBUTION = get_base_config("dependent_distribution", False)
@@ -140,25 +138,22 @@ RAG_FLOW_UPDATE_CHECK = False
 HOST = get_base_config(RAG_FLOW_SERVICE_NAME, {}).get("host", "127.0.0.1")
 HTTP_PORT = get_base_config(RAG_FLOW_SERVICE_NAME, {}).get("http_port")
 
-SECRET_KEY = get_base_config(
-    RAG_FLOW_SERVICE_NAME,
-    {}).get(
-        "secret_key",
-    "infiniflow")
-TOKEN_EXPIRE_IN = get_base_config(
-    RAG_FLOW_SERVICE_NAME, {}).get(
-        "token_expires_in", 3600)
+SECRET_KEY = get_base_config(RAG_FLOW_SERVICE_NAME, {}).get("secret_key", "infiniflow")
+TOKEN_EXPIRE_IN = get_base_config(RAG_FLOW_SERVICE_NAME, {}).get(
+    "token_expires_in", 3600
+)
 
-NGINX_HOST = get_base_config(
-    RAG_FLOW_SERVICE_NAME, {}).get(
-        "nginx", {}).get("host") or HOST
-NGINX_HTTP_PORT = get_base_config(
-    RAG_FLOW_SERVICE_NAME, {}).get(
-        "nginx", {}).get("http_port") or HTTP_PORT
+NGINX_HOST = (
+    get_base_config(RAG_FLOW_SERVICE_NAME, {}).get("nginx", {}).get("host") or HOST
+)
+NGINX_HTTP_PORT = (
+    get_base_config(RAG_FLOW_SERVICE_NAME, {}).get("nginx", {}).get("http_port")
+    or HTTP_PORT
+)
 
-RANDOM_INSTANCE_ID = get_base_config(
-    RAG_FLOW_SERVICE_NAME, {}).get(
-        "random_instance_id", False)
+RANDOM_INSTANCE_ID = get_base_config(RAG_FLOW_SERVICE_NAME, {}).get(
+    "random_instance_id", False
+)
 
 PROXY = get_base_config(RAG_FLOW_SERVICE_NAME, {}).get("proxy")
 PROXY_PROTOCOL = get_base_config(RAG_FLOW_SERVICE_NAME, {}).get("protocol")
@@ -173,9 +168,7 @@ UPLOAD_DATA_FROM_CLIENT = True
 AUTHENTICATION_CONF = get_base_config("authentication", {})
 
 # client
-CLIENT_AUTHENTICATION = AUTHENTICATION_CONF.get(
-    "client", {}).get(
-        "switch", False)
+CLIENT_AUTHENTICATION = AUTHENTICATION_CONF.get("client", {}).get("switch", False)
 HTTP_APP_KEY = AUTHENTICATION_CONF.get("client", {}).get("http_app_key")
 GITHUB_OAUTH = get_base_config("oauth", {}).get("github")
 FEISHU_OAUTH = get_base_config("oauth", {}).get("feishu")
@@ -193,7 +186,7 @@ DATASET_PERMISSION = PERMISSION_CONF.get("dataset")
 HOOK_MODULE = get_base_config("hook_module")
 HOOK_SERVER_NAME = get_base_config("hook_server_name")
 
-ENABLE_MODEL_STORE = get_base_config('enable_model_store', False)
+ENABLE_MODEL_STORE = get_base_config("enable_model_store", False)
 # authentication
 USE_AUTHENTICATION = False
 USE_DATA_AUTHENTICATION = False

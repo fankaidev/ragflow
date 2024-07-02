@@ -21,7 +21,8 @@ do
 done
 
 while [ 1 -eq 1 ];do
-    $PY api/ragflow_server.py
+    echo ************** starting server **************
+    $PY api/ragflow_server.py --debug
 done
 
 wait;
