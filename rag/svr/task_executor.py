@@ -45,7 +45,19 @@ from rag.nlp import search, rag_tokenizer
 from io import BytesIO
 import pandas as pd
 
-from rag.app import laws, paper, presentation, manual, qa, table, book, resume, picture, naive, one
+from rag.app import (
+    laws,
+    paper,
+    presentation,
+    manual,
+    qa,
+    table,
+    book,
+    resume,
+    picture,
+    naive,
+    one,
+)
 
 from api.db import LLMType, ParserType
 from api.db.services.document_service import DocumentService
@@ -71,8 +83,7 @@ FACTORY = {
 }
 
 
-def set_progress(task_id, from_page=0, to_page=-1,
-                 prog=None, msg="Processing..."):
+def set_progress(task_id, from_page=0, to_page=-1, prog=None, msg="Processing..."):
     if prog is not None and prog < 0:
         msg = "[ERROR]" + msg
     cancel = TaskService.do_cancel(task_id)
@@ -98,7 +109,9 @@ def set_progress(task_id, from_page=0, to_page=-1,
 
 def collect():
     try:
-        payload = REDIS_CONN.queue_consumer(SVR_QUEUE_NAME, "rag_flow_svr_task_broker", "rag_flow_svr_task_consumer")
+        payload = REDIS_CONN.queue_consumer(
+            SVR_QUEUE_NAME, "rag_flow_svr_task_broker", "rag_flow_svr_task_consumer"
+        )
         if not payload:
             time.sleep(1)
             return pd.DataFrame()
@@ -108,7 +121,8 @@ def collect():
 
     msg = payload.get_message()
     payload.ack()
-    if not msg: return pd.DataFrame()
+    if not msg:
+        return pd.DataFrame()
 
     if TaskService.do_cancel(msg["id"]):
         cron_logger.info("Task {} has been canceled.".format(msg["id"]))
@@ -127,57 +141,65 @@ def get_minio_binary(bucket, name):
 
 def build(row):
     if row["size"] > DOC_MAXIMUM_SIZE:
-        set_progress(row["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
-                                             (int(DOC_MAXIMUM_SIZE / 1024 / 1024)))
+        set_progress(
+            row["id"],
+            prog=-1,
+            msg="File size exceeds( <= %dMb )" % (int(DOC_MAXIMUM_SIZE / 1024 / 1024)),
+        )
         return []
 
-    callback = partial(
-        set_progress,
-        row["id"],
-        row["from_page"],
-        row["to_page"])
+    callback = partial(set_progress, row["id"], row["from_page"], row["to_page"])
     chunker = FACTORY[row["parser_id"].lower()]
     try:
         st = timer()
         bucket, name = File2DocumentService.get_minio_address(doc_id=row["doc_id"])
         binary = get_minio_binary(bucket, name)
         cron_logger.info(
-            "From minio({}) {}/{}".format(timer() - st, row["location"], row["name"]))
-        cks = chunker.chunk(row["name"], binary=binary, from_page=row["from_page"],
-                            to_page=row["to_page"], lang=row["language"], callback=callback,
-                            kb_id=row["kb_id"], parser_config=row["parser_config"], tenant_id=row["tenant_id"])
+            "From minio({}) {}/{}".format(timer() - st, row["location"], row["name"])
+        )
+        cks = chunker.chunk(
+            row["name"],
+            binary=binary,
+            from_page=row["from_page"],
+            to_page=row["to_page"],
+            lang=row["language"],
+            callback=callback,
+            kb_id=row["kb_id"],
+            parser_config=row["parser_config"],
+            tenant_id=row["tenant_id"],
+        )
         cron_logger.info(
-            "Chunkking({}) {}/{}".format(timer() - st, row["location"], row["name"]))
+            "Chunkking({}) {}/{}".format(timer() - st, row["location"], row["name"])
+        )
     except TimeoutError as e:
-        callback(-1, f"Internal server error: Fetch file timeout. Could you try it again.")
+        callback(
+            -1, f"Internal server error: Fetch file timeout. Could you try it again."
+        )
         cron_logger.error(
-            "Chunkking {}/{}: Fetch file timeout.".format(row["location"], row["name"]))
+            "Chunkking {}/{}: Fetch file timeout.".format(row["location"], row["name"])
+        )
         return
     except Exception as e:
         if re.search("(No such file|not found)", str(e)):
             callback(-1, "Can not find file <%s>" % row["name"])
         else:
-            callback(-1, f"Internal server error: %s" %
-                     str(e).replace("'", ""))
+            callback(-1, f"Internal server error: %s" % str(e).replace("'", ""))
         traceback.print_exc()
 
         cron_logger.error(
-            "Chunkking {}/{}: {}".format(row["location"], row["name"], str(e)))
+            "Chunkking {}/{}: {}".format(row["location"], row["name"], str(e))
+        )
 
         return
 
     docs = []
-    doc = {
-        "doc_id": row["doc_id"],
-        "kb_id": [str(row["kb_id"])]
-    }
+    doc = {"doc_id": row["doc_id"], "kb_id": [str(row["kb_id"])]}
     el = 0
     for ck in cks:
         d = copy.deepcopy(doc)
         d.update(ck)
         md5 = hashlib.md5()
-        md5.update((ck["content_with_weight"] +
-                    str(d["doc_id"])).encode("utf-8"))
+        md5.update((ck["content_with_weight"] + str(d["doc_id"])).encode("utf-8"))
         d["_id"] = md5.hexdigest()
         d["create_time"] = str(datetime.datetime.now()).replace("T", " ")[:19]
         d["create_timestamp_flt"] = datetime.datetime.now().timestamp()
@@ -189,7 +211,7 @@ def build(row):
         if isinstance(d["image"], bytes):
             output_buffer = BytesIO(d["image"])
         else:
-            d["image"].save(output_buffer, format='JPEG')
+            d["image"].save(output_buffer, format="JPEG")
 
         st = timer()
         MINIO.put(row["kb_id"], d["_id"], output_buffer.getvalue())
@@ -206,19 +228,32 @@ def init_kb(row):
     idxnm = search.index_name(row["tenant_id"])
     if ELASTICSEARCH.indexExist(idxnm):
         return
-    return ELASTICSEARCH.createIdx(idxnm, json.load(
-        open(os.path.join(get_project_base_directory(), "conf", "mapping.json"), "r")))
+    return ELASTICSEARCH.createIdx(
+        idxnm,
+        json.load(
+            open(
+                os.path.join(get_project_base_directory(), "conf", "mapping.json"), "r"
+            )
+        ),
+    )
 
 
 def embedding(docs, mdl, parser_config={}, callback=None):
     batch_size = 32
     tts, cnts = [rmSpace(d["title_tks"]) for d in docs if d.get("title_tks")], [
-        re.sub(r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>", " ", d["content_with_weight"]) for d in docs]
+        re.sub(
+            r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>",
+            " ",
+            d["content_with_weight"],
+        )
+        for d in docs
+    ]
     tk_count = 0
     if len(tts) == len(cnts):
         tts_ = np.array([])
         for i in range(0, len(tts), batch_size):
-            vts, c = mdl.encode(tts[i: i + batch_size])
+            cron_logger.info(f"embed titles({i}-{i+batch_size})")
+            vts, c = mdl.encode(tts[i : i + batch_size])
             if len(tts_) == 0:
                 tts_ = vts
             else:
@@ -229,7 +264,8 @@ def embedding(docs, mdl, parser_config={}, callback=None):
 
     cnts_ = np.array([])
     for i in range(0, len(cnts), batch_size):
-        vts, c = mdl.encode(cnts[i: i + batch_size])
+        cron_logger.info(f"embed contents({i}-{i+batch_size})")
+        vts, c = mdl.encode(cnts[i : i + batch_size])
         if len(cnts_) == 0:
             cnts_ = vts
         else:
@@ -239,8 +275,7 @@ def embedding(docs, mdl, parser_config={}, callback=None):
     cnts = cnts_
 
     title_w = float(parser_config.get("filename_embd_weight", 0.1))
-    vects = (title_w * tts + (1 - title_w) *
-             cnts) if len(tts) == len(cnts) else cnts
+    vects = (title_w * tts + (1 - title_w) * cnts) if len(tts) == len(cnts) else cnts
 
     assert len(vects) == len(docs)
     for i, d in enumerate(docs):
@@ -251,9 +286,11 @@ def embedding(docs, mdl, parser_config={}, callback=None):
 
 def run_raptor(row, chat_mdl, embd_mdl, callback=None):
     vts, _ = embd_mdl.encode(["ok"])
-    vctr_nm = "q_%d_vec"%len(vts[0])
+    vctr_nm = "q_%d_vec" % len(vts[0])
     chunks = []
-    for d in retrievaler.chunk_list(row["doc_id"], row["tenant_id"], fields=["content_with_weight", vctr_nm]):
+    for d in retrievaler.chunk_list(
+        row["doc_id"], row["tenant_id"], fields=["content_with_weight", vctr_nm]
+    ):
         chunks.append((d["content_with_weight"], np.array(d[vctr_nm])))
 
     raptor = Raptor(
@@ -262,7 +299,7 @@ def run_raptor(row, chat_mdl, embd_mdl, callback=None):
         embd_mdl,
         row["parser_config"]["raptor"]["prompt"],
         row["parser_config"]["raptor"]["max_token"],
-        row["parser_config"]["raptor"]["threshold"]
+        row["parser_config"]["raptor"]["threshold"],
     )
     original_length = len(chunks)
     raptor(chunks, row["parser_config"]["raptor"]["random_seed"], callback)
@@ -270,7 +307,7 @@ def run_raptor(row, chat_mdl, embd_mdl, callback=None):
         "doc_id": row["doc_id"],
         "kb_id": [str(row["kb_id"])],
         "docnm_kwd": row["name"],
-        "title_tks": rag_tokenizer.tokenize(row["name"])
+        "title_tks": rag_tokenizer.tokenize(row["name"]),
     }
     res = []
     tk_count = 0
@@ -298,7 +335,12 @@ def main():
     for _, r in rows.iterrows():
         callback = partial(set_progress, r["id"], r["from_page"], r["to_page"])
         try:
-            embd_mdl = LLMBundle(r["tenant_id"], LLMType.EMBEDDING, llm_name=r["embd_id"], lang=r["language"])
+            embd_mdl = LLMBundle(
+                r["tenant_id"],
+                LLMType.EMBEDDING,
+                llm_name=r["embd_id"],
+                lang=r["language"],
+            )
         except Exception as e:
             callback(-1, msg=str(e))
             cron_logger.error(str(e))
@@ -306,7 +348,12 @@ def main():
 
         if r.get("task_type", "") == "raptor":
             try:
-                chat_mdl = LLMBundle(r["tenant_id"], LLMType.CHAT, llm_name=r["llm_id"], lang=r["language"])
+                chat_mdl = LLMBundle(
+                    r["tenant_id"],
+                    LLMType.CHAT,
+                    llm_name=r["llm_id"],
+                    lang=r["language"],
+                )
                 cks, tk_count = run_raptor(r, chat_mdl, embd_mdl, callback)
             except Exception as e:
                 callback(-1, msg=str(e))
@@ -319,13 +366,14 @@ def main():
             if cks is None:
                 continue
             if not cks:
-                callback(1., "No chunk! Done!")
+                callback(1.0, "No chunk! Done!")
                 continue
             # TODO: exception handler
             ## set_progress(r["did"], -1, "ERROR: ")
             callback(
-                msg="Finished slicing files(%d). Start to embedding the content." %
-                    len(cks))
+                msg="Finished slicing files(%d). Start to embedding the content."
+                % len(cks)
+            )
             st = timer()
             try:
                 tk_count = embedding(cks, embd_mdl, r["parser_config"], callback)
@@ -333,8 +381,14 @@ def main():
                 callback(-1, "Embedding error:{}".format(str(e)))
                 cron_logger.error(str(e))
                 tk_count = 0
-            cron_logger.info("Embedding elapsed({}): {:.2f}".format(r["name"], timer() - st))
-            callback(msg="Finished embedding({:.2f})! Start to build index!".format(timer() - st))
+            cron_logger.info(
+                "Embedding elapsed({}): {:.2f}".format(r["name"], timer() - st)
+            )
+            callback(
+                msg="Finished embedding({:.2f})! Start to build index!".format(
+                    timer() - st
+                )
+            )
 
         init_kb(r)
         chunk_count = len(set([c["_id"] for c in cks]))
@@ -342,7 +396,9 @@ def main():
         es_r = ""
         es_bulk_size = 16
         for b in range(0, len(cks), es_bulk_size):
-            es_r = ELASTICSEARCH.bulk(cks[b:b + es_bulk_size], search.index_name(r["tenant_id"]))
+            es_r = ELASTICSEARCH.bulk(
+                cks[b : b + es_bulk_size], search.index_name(r["tenant_id"])
+            )
             if b % 128 == 0:
                 callback(prog=0.8 + 0.1 * (b + 1) / len(cks), msg="")
 
@@ -350,23 +406,29 @@ def main():
         if es_r:
             callback(-1, "Index failure!")
             ELASTICSEARCH.deleteByQuery(
-                Q("match", doc_id=r["doc_id"]), idxnm=search.index_name(r["tenant_id"]))
+                Q("match", doc_id=r["doc_id"]), idxnm=search.index_name(r["tenant_id"])
+            )
             cron_logger.error(str(es_r))
         else:
             if TaskService.do_cancel(r["id"]):
                 ELASTICSEARCH.deleteByQuery(
-                    Q("match", doc_id=r["doc_id"]), idxnm=search.index_name(r["tenant_id"]))
+                    Q("match", doc_id=r["doc_id"]),
+                    idxnm=search.index_name(r["tenant_id"]),
+                )
                 continue
-            callback(1., "Done!")
+            callback(1.0, "Done!")
             DocumentService.increment_chunk_num(
-                r["doc_id"], r["kb_id"], tk_count, chunk_count, 0)
+                r["doc_id"], r["kb_id"], tk_count, chunk_count, 0
+            )
             cron_logger.info(
                 "Chunk doc({}), token({}), chunks({}), elapsed:{:.2f}".format(
-                    r["id"], tk_count, len(cks), timer() - st))
+                    r["id"], tk_count, len(cks), timer() - st
+                )
+            )
 
 
 if __name__ == "__main__":
-    peewee_logger = logging.getLogger('peewee')
+    peewee_logger = logging.getLogger("peewee")
     peewee_logger.propagate = False
     peewee_logger.addHandler(database_logger.handlers[0])
     peewee_logger.setLevel(database_logger.level)

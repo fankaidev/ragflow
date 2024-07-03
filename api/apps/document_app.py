@@ -322,6 +322,7 @@ def change_status():
 @login_required
 @validate_request("doc_id")
 def rm():
+    print("remove file")
     req = request.json
     doc_ids = req["doc_id"]
     if isinstance(doc_ids, str):

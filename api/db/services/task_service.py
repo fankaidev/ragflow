@@ -55,39 +55,67 @@ class TaskService(CommonService):
             Tenant.img2txt_id,
             Tenant.asr_id,
             Tenant.llm_id,
-            cls.model.update_time]
-        docs = cls.model.select(*fields) \
-            .join(Document, on=(cls.model.doc_id == Document.id)) \
-            .join(Knowledgebase, on=(Document.kb_id == Knowledgebase.id)) \
-            .join(Tenant, on=(Knowledgebase.tenant_id == Tenant.id)) \
+            cls.model.update_time,
+        ]
+        docs = (
+            cls.model.select(*fields)
+            .join(Document, on=(cls.model.doc_id == Document.id))
+            .join(Knowledgebase, on=(Document.kb_id == Knowledgebase.id))
+            .join(Tenant, on=(Knowledgebase.tenant_id == Tenant.id))
             .where(cls.model.id == task_id)
+        )
         docs = list(docs.dicts())
-        if not docs: return []
+        if not docs:
+            return []
 
-        cls.model.update(progress_msg=cls.model.progress_msg + "\n" + "Task has been received.",
-                         progress=random.random() / 10.).where(
-            cls.model.id == docs[0]["id"]).execute()
+        cls.model.update(
+            progress_msg=cls.model.progress_msg + "\n" + "Task has been received.",
+            progress=random.random() / 10.0,
+        ).where(cls.model.id == docs[0]["id"]).execute()
         return docs
 
     @classmethod
     @DB.connection_context()
     def get_ongoing_doc_name(cls):
         with DB.lock("get_task", -1):
-            docs = cls.model.select(*[Document.id, Document.kb_id, Document.location, File.parent_id]) \
-                .join(Document, on=(cls.model.doc_id == Document.id)) \
-                .join(File2Document, on=(File2Document.document_id == Document.id), join_type=JOIN.LEFT_OUTER) \
-                .join(File, on=(File2Document.file_id == File.id), join_type=JOIN.LEFT_OUTER) \
+            docs = (
+                cls.model.select(
+                    *[Document.id, Document.kb_id, Document.location, File.parent_id]
+                )
+                .join(Document, on=(cls.model.doc_id == Document.id))
+                .join(
+                    File2Document,
+                    on=(File2Document.document_id == Document.id),
+                    join_type=JOIN.LEFT_OUTER,
+                )
+                .join(
+                    File,
+                    on=(File2Document.file_id == File.id),
+                    join_type=JOIN.LEFT_OUTER,
+                )
                 .where(
                     Document.status == StatusEnum.VALID.value,
                     Document.run == TaskStatus.RUNNING.value,
                     ~(Document.type == FileType.VIRTUAL.value),
                     cls.model.progress < 1,
-                    cls.model.create_time >= current_timestamp() - 1000 * 600
+                    cls.model.create_time >= current_timestamp() - 1000 * 600,
                 )
+            )
             docs = list(docs.dicts())
-            if not docs: return []
+            if not docs:
+                return []
 
-            return list(set([(d["parent_id"] if d["parent_id"] else d["kb_id"], d["location"]) for d in docs]))
+            return list(
+                set(
+                    [
+                        (
+                            d["parent_id"] if d["parent_id"] else d["kb_id"],
+                            d["location"],
+                        )
+                        for d in docs
+                    ]
+                )
+            )
 
     @classmethod
     @DB.connection_context()
@@ -105,30 +133,34 @@ class TaskService(CommonService):
     def update_progress(cls, id, info):
         if os.environ.get("MACOS"):
             if info["progress_msg"]:
-                cls.model.update(progress_msg=cls.model.progress_msg + "\n" + info["progress_msg"]).where(
-                    cls.model.id == id).execute()
+                cls.model.update(
+                    progress_msg=cls.model.progress_msg + "\n" + info["progress_msg"]
+                ).where(cls.model.id == id).execute()
             if "progress" in info:
                 cls.model.update(progress=info["progress"]).where(
-                    cls.model.id == id).execute()
+                    cls.model.id == id
+                ).execute()
             return
 
         with DB.lock("update_progress", -1):
             if info["progress_msg"]:
-                cls.model.update(progress_msg=cls.model.progress_msg + "\n" + info["progress_msg"]).where(
-                    cls.model.id == id).execute()
+                cls.model.update(
+                    progress_msg=cls.model.progress_msg + "\n" + info["progress_msg"]
+                ).where(cls.model.id == id).execute()
             if "progress" in info:
                 cls.model.update(progress=info["progress"]).where(
-                    cls.model.id == id).execute()
+                    cls.model.id == id
+                ).execute()
 
 
 def queue_tasks(doc, bucket, name):
     def new_task():
         nonlocal doc
-        return {
-            "id": get_uuid(),
-            "doc_id": doc["id"]
-        }
+        return {"id": get_uuid(), "doc_id": doc["id"]}
+
     tsks = []
+
+    print("quque_tasks", doc["parser_id"], doc["parser_config"])
 
     if doc["type"] == FileType.PDF.value:
         file_bin = MINIO.get(bucket, name)
@@ -156,8 +188,7 @@ def queue_tasks(doc, bucket, name):
 
     elif doc["parser_id"] == "table":
         file_bin = MINIO.get(bucket, name)
-        rn = RAGFlowExcelParser.row_number(
-            doc["name"], file_bin)
+        rn = RAGFlowExcelParser.row_number(doc["name"], file_bin)
         for i in range(0, rn, 3000):
             task = new_task()
             task["from_page"] = i
@@ -170,4 +201,6 @@ def queue_tasks(doc, bucket, name):
     DocumentService.begin2parse(doc["id"])
 
     for t in tsks:
-        assert REDIS_CONN.queue_product(SVR_QUEUE_NAME, message=t), "Can't access Redis. Please check the Redis' status."
+        assert REDIS_CONN.queue_product(
+            SVR_QUEUE_NAME, message=t
+        ), "Can't access Redis. Please check the Redis' status."

@@ -35,7 +35,7 @@ curl 'http://localhost:3080/v1/document/list?kb_id=97044428362b11ef820f0242ac130
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "macOS"'
 
-curl http://localhost:3080/v1/list_kb_docs \
+curl http://localhost:3080/v1/api/list_kb_docs \
     -H "Authorization: Bearer $TOKEN" \
     -H 'Accept: application/json' \
     --data-raw '{"kb_name":"test"}'
