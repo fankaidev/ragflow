@@ -38,8 +38,10 @@ const NodeDropdown = ({ id }: IProps) => {
   return (
     <OperateDropdown
       iconFontSize={14}
+      height={14}
       deleteItem={deleteNode}
       items={items}
+      needsDeletionValidation={false}
     ></OperateDropdown>
   );
 };

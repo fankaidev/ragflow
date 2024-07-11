@@ -1,9 +1,13 @@
 import { useTranslate } from '@/hooks/commonHooks';
 import { CloseOutlined } from '@ant-design/icons';
-import { Button, Card, Form, Input, Select, Typography } from 'antd';
+import { Button, Card, Form, Input, Select } from 'antd';
 import { useUpdateNodeInternals } from 'reactflow';
+import { Operator } from '../constant';
+import {
+  useBuildFormSelectOptions,
+  useHandleFormSelectChange,
+} from '../form-hooks';
 import { ICategorizeItem } from '../interface';
-import { useBuildCategorizeToOptions, useHandleToSelectChange } from './hooks';
 
 interface IProps {
   nodeId?: string;
@@ -12,8 +16,11 @@ interface IProps {
 const DynamicCategorize = ({ nodeId }: IProps) => {
   const updateNodeInternals = useUpdateNodeInternals();
   const form = Form.useFormInstance();
-  const buildCategorizeToOptions = useBuildCategorizeToOptions();
-  const { handleSelectChange } = useHandleToSelectChange(nodeId);
+  const buildCategorizeToOptions = useBuildFormSelectOptions(
+    Operator.Categorize,
+    nodeId,
+  );
+  const { handleSelectChange } = useHandleFormSelectChange(nodeId);
   const { t } = useTranslate('flow');
 
   return (
@@ -42,7 +49,7 @@ const DynamicCategorize = ({ nodeId }: IProps) => {
                   }
                 >
                   <Form.Item
-                    label={t('name')}
+                    label={t('name')} // TODO: repeatability check
                     name={[field.name, 'name']}
                     rules={[{ required: true, message: t('nameMessage') }]}
                   >
@@ -81,20 +88,20 @@ const DynamicCategorize = ({ nodeId }: IProps) => {
               ))}
 
               <Button type="dashed" onClick={handleAdd} block>
-                + Add Item
+                + {t('addItem')}
               </Button>
             </div>
           );
         }}
       </Form.List>
 
-      <Form.Item noStyle shouldUpdate>
+      {/* <Form.Item noStyle shouldUpdate>
         {() => (
           <Typography>
             <pre>{JSON.stringify(form.getFieldsValue(), null, 2)}</pre>
           </Typography>
         )}
-      </Form.Item>
+      </Form.Item> */}
     </>
   );
 };

@@ -1,20 +1,26 @@
-import { Flex, Space } from 'antd';
+import { useTranslate } from '@/hooks/commonHooks';
+import { Flex } from 'antd';
 import classNames from 'classnames';
+import lowerFirst from 'lodash/lowerFirst';
 import { Handle, NodeProps, Position } from 'reactflow';
-import { Operator } from '../../constant';
+import { Operator, operatorMap } from '../../constant';
 import { NodeData } from '../../interface';
-import OperatorIcon from '../../operator-icon';
-import NodeDropdown from './dropdown';
-
 import styles from './index.less';
 
 // TODO: do not allow other nodes to connect to this node
 export function BeginNode({ id, data, selected }: NodeProps<NodeData>) {
+  const { t } = useTranslate('flow');
   return (
     <section
       className={classNames(styles.ragNode, {
         [styles.selectedNode]: selected,
       })}
+      style={{
+        backgroundColor: operatorMap[data.label as Operator].backgroundColor,
+        color: 'white',
+        width: 50,
+        height: 50,
+      }}
     >
       <Handle
         type="source"
@@ -22,17 +28,11 @@ export function BeginNode({ id, data, selected }: NodeProps<NodeData>) {
         isConnectable
         className={styles.handle}
       ></Handle>
-      <Flex vertical align="center" justify="center">
-        <Space size={6}>
-          <OperatorIcon
-            name={data.label as Operator}
-            fontSize={16}
-          ></OperatorIcon>
-          <NodeDropdown id={id}></NodeDropdown>
-        </Space>
+      <Flex vertical align="center" justify="center" gap={6}>
+        <span className={styles.type}>{t(lowerFirst(data.label))}</span>
       </Flex>
       <section className={styles.bottomBox}>
-        <div className={styles.nodeName}>{id}</div>
+        <div className={styles.nodeName}>{data.name}</div>
       </section>
     </section>
   );

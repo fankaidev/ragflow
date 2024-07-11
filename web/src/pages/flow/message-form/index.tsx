@@ -38,7 +38,7 @@ const MessageForm = ({ onValuesChange, form }: IOperatorForm) => {
             {fields.map((field, index) => (
               <Form.Item
                 {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
-                label={index === 0 ? t('message') : ''}
+                label={index === 0 ? t('msg') : ''}
                 required={false}
                 key={field.key}
               >
@@ -54,7 +54,8 @@ const MessageForm = ({ onValuesChange, form }: IOperatorForm) => {
                   ]}
                   noStyle
                 >
-                  <Input
+                  <Input.TextArea
+                    rows={4}
                     placeholder={t('messagePlaceholder')}
                     style={{ width: '80%' }}
                   />
